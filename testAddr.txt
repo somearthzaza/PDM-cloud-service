@@ -1,0 +1,1 @@
+py_object(<testThread(Thread-1, initial)>)

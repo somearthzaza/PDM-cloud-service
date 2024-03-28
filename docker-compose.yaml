@@ -1,0 +1,80 @@
+version: "3.8"
+services:
+  main:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: main
+
+    env_file:
+      - .env
+    environment:
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      DB_HOST: 172.168.0.5
+      DB_PORT: 5433
+      MQTT_IP: 172.168.0.6
+      MQTT_PORT: 1883
+      TOPIC: ${TOPIC}
+      MQTT_TOPIC_PI: ${MQTT_TOPIC_PI}
+      PI_TOPIC_RESPONSE: ${PI_TOPIC_RESPONSE}
+      MQTT_TOPIC_PREDICT: ${MQTT_TOPIC_PREDICT}
+
+    ports:
+      - 5001:5000
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - mqtt
+    networks:
+      - vibrenet
+
+  mqtt:
+    image: eclipse-mosquitto
+    container_name: mqtt5
+    ports:
+      - 1883:1883
+      - 9001:9001
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./mosquitto/log:/mosquitto/log:rw
+
+    networks:
+      vibrenet:
+        ipv4_address: 172.168.0.6
+  db:
+    image: postgres
+    container_name: db_postgres
+    env_file:
+      - .env
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - ./postgres/data:/var/lib/postgresql/data
+    ports:
+      - 5433:5432
+    networks:
+      vibrenet:
+        ipv4_address: 172.168.0.5
+
+  grafana:
+    image: grafana/grafana-enterprise
+    container_name: grafana
+    ports:
+      - 3000:3000
+    volumes:
+      - ./grafana/data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    links:
+      - db:postgres
+    networks:
+      - vibrenet
+networks:
+  vibrenet:
+    ipam:
+      config:
+        - subnet: 172.168.0.0/24
